@@ -14,3 +14,5 @@ When the n8n evaluation is complete, a secondary internal Airtable automation ha
 ### Schema Highlights
 * [cite_start]**Automated Match Scoring:** Utilizes weighted formulas to compare job requirements against my background in platform integrations and AI workflows[cite: 4].
 * [cite_start]**Data Normalization:** Salary data is normalized via regex-based formulas to handle inconsistent formatting (e.g., converting "80K–100K" into a numeric range)[cite: 3].
+
+![image description](https://github.com/briapete/n8n_job_search/blob/feature_airtable_doc/docs/assets/airtable_table.png?raw=true)
