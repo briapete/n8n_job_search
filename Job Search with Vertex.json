@@ -1,0 +1,371 @@
+{
+  "name": "Job Search with Vertex",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -144,
+        112
+      ],
+      "id": "af91b12a-8dd6-4966-8fae-668fd2bc3f55",
+      "name": "When chat message received",
+      "webhookId": "ea9cad27-49dc-4954-9096-bb37103dddb5"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=I need to find jobs for:\n {{ $json.chatInput }}\n\nInstructions:\n- Use all available search tools to find a total of 30 results.\n- Ensure the resume content is passed to each tool for proper evaluation.",
+        "options": {
+          "systemMessage": "## ROLE\nYou are a Job Search Assistant. Your goal is to find and process 30 high-quality job leads using your connected tools.\n\n## SEARCH STRATEGY\n1. Use BOTH 'job_search_tool_adzuna' and 'job_search_tool_google' to ensure a comprehensive search.\n2. For each tool, pass the job title from the user's request and the resume content provided in the workflow.\n3. If one tool returns fewer than 15 results, prioritize the other tool to meet the 30-job target.\n\n## OPERATIONAL RULES\n- DO NOT try to find jobs using your internal knowledge; always use the tools.\n- Each tool handles its own internal evaluation and Google Sheets saving.\n- Once both tools report success, provide a final summary to the user of how many total jobs were processed.",
+          "maxIterations": 100,
+          "returnIntermediateSteps": true,
+          "enableStreaming": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        656,
+        112
+      ],
+      "id": "c604f7d3-6ca6-4aa0-aeef-90810888351c",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "projectId": {
+          "__rl": true,
+          "value": "glowing-harmony-491816-q4",
+          "mode": "id"
+        },
+        "modelName": "gemini-3.1-flash-lite-preview",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleVertex",
+      "typeVersion": 1,
+      "position": [
+        528,
+        336
+      ],
+      "id": "417273e7-0da1-488e-82a3-1a54572b2641",
+      "name": "Google Vertex Chat Model",
+      "credentials": {
+        "googleApi": {
+          "id": "q85U6yiOdU6CCemW",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 1
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        656,
+        336
+      ],
+      "id": "c35c11f5-3d05-42b2-8ba8-94bf2ea1e583",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "19gftXf2SJnjKhgOsPPfAwlhe84ObOFab",
+          "mode": "list",
+          "cachedResultName": "Copy of MASTER_content.yaml",
+          "cachedResultUrl": "https://drive.google.com/file/d/19gftXf2SJnjKhgOsPPfAwlhe84ObOFab/view?usp=drivesdk"
+        },
+        "options": {
+          "binaryPropertyName": "data"
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        80,
+        112
+      ],
+      "id": "6995f1f8-2895-4b91-ac49-cc0bb546ec44",
+      "name": "Download Resume",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "zDqV2wA07FIhUcXk",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// This script finds the binary file and decodes it using the older n8n method\nconst binaryData = $input.item.binary;\nconst binaryKeys = Object.keys(binaryData);\n\nif (binaryKeys.length === 0) {\n  return { my_resume_content: \"ERROR: No binary file found.\" };\n}\n\n// Grab the first binary key (like 'data' or 'attachment')\nconst key = binaryKeys[0];\n\n// In n8n v2.x, we use this helper to turn binary into a string\nconst textContent = await this.helpers.getBinaryDataBuffer(0, key);\n\nreturn {\n  my_resume_content: textContent.toString('utf-8')\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        112
+      ],
+      "id": "e268701a-0916-43d6-917f-2ed4e9b97245",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "description": "his tool returns a summary message of the jobs found and saved.",
+        "workflowId": {
+          "__rl": true,
+          "value": "AxKy7zqrHRSUV0lC",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/AxKy7zqrHRSUV0lC",
+          "cachedResultName": "Job Search Tool Aadzuna"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_title": "={{ $fromAI('job_title', `The job title to search for`, 'string') }}",
+            "page": "={{ $fromAI(\"page\", 1) }}",
+            "resume": "={{ $('Code').item.json.my_resume_content }}",
+            "results_per_page": "={{ $fromAI(\"results_per_page\", \"The number of job results to return per page. Use 10 for quick searches or 50 for comprehensive ones.\") }}"
+          },
+          "matchingColumns": [
+            "job_title"
+          ],
+          "schema": [
+            {
+              "id": "job_title",
+              "displayName": "job_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "page",
+              "displayName": "page",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "resume",
+              "displayName": "resume",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "results_per_page",
+              "displayName": "results_per_page",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        912,
+        336
+      ],
+      "id": "ab943887-84c6-49c2-8f46-1d43158feffa",
+      "name": "job_search_tool_adzuna"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qPrRvmDjp6tEMNgB",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/qPrRvmDjp6tEMNgB",
+          "cachedResultName": "Job Search Tool Google"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_title": "={{ $fromAI('job_title', `The job title to search for`, 'string') }}",
+            "resume": "={{ $('Code').item.json.my_resume_content }}",
+            "page": "={{ $fromAI(\"page\", 1) }}"
+          },
+          "matchingColumns": [
+            "job_title"
+          ],
+          "schema": [
+            {
+              "id": "job_title",
+              "displayName": "job_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "resume",
+              "displayName": "resume",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "page",
+              "displayName": "page",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        784,
+        336
+      ],
+      "id": "8fe4c4d6-8df8-4352-9a32-00e389c82396",
+      "name": "job_search_tool_google"
+    },
+    {
+      "parameters": {
+        "content": "Evaluate this request: \"{{ $('When chat message received').item.json.chatInput }}\"\n\nUse the following ATS methodology:\nStep 1: Extract JD keywords.\nStep 2: Match against YAML (HIT/MISS).\nStep 3: Score Raw % and Honest %.\n\nProduce the SCORECARD output block exactly as instructed in your System Prompt.\n## ROLE\nYou are a Recruitment Intelligence Architect. Your primary mission is to evaluate job batches for Brian Peterson and deliver a SINGLE data payload.\n\n## MASTER RESUME (GROUND TRUTH)\n{{ $(\"Code\").item.json.my_resume_content }}\n\n## ── MANDATORY EXECUTION GATE (READ THIS FIRST) ──────────────────────────────\n1. **NO ITERATIVE LOGGING:** You are strictly forbidden from calling 'log_evaluation_to_sheet' more than once. \n2. **THE BUFFER:** You must evaluate all 50 results in your internal memory first. \n3. **THE PAYLOAD:** Consolidate all Tier A and Tier B evaluations into a SINGLE JSON ARRAY. \n4. **ONE ACTION:** Call 'log_evaluation_to_sheet' EXACTLY ONCE at the very end of your thought process. \n5. If you call the log tool individually for each job, you have failed the mission and will trigger a system timeout.\n\n## ── WORKFLOW ──────────────────────────────────────────────────────────────\n1. **Search Phase (MANDATORY):** - \n   - First, call 'job_search_tool_aadzuna'.\n   - Second, call 'job_search_tool_google' to find supplemental roles not found in Adzuna.\n   - You MUST use BOTH tools before proceeding to the Filter phase.\n2. **Rapid Triage (Internal Only):** Skim all results. Immediately discard duplicates and 'Hard Pass' roles. \n3. **The \"Big Ten\" Rule:** From the remaining list, select the TOP 10 best-fitting roles. \n4. **Deep Evaluation:** Perform the full Scoring, ATS Mapping, and Scorecard generation ONLY for those Top 10 roles.\n5. **Transmit:** Send the array of these 10 roles to 'log_evaluation_to_sheet'.\n\n---\n\n\n### BRIAN'S BACKGROUND (SUMMARY)\n\nBrian spent 22 years (2003–2026) as Lead Platform Consultant at Kinetic Data, delivering enterprise\nIT service catalog, workflow automation, and integration architecture projects for federal agencies,\nhealthcare, financial services, defense, and commercial organizations. He is job searching as of 2026.\n\n**Primary role types he targets:**\n- SaaS implementation consultant / professional services\n- Integration architect / iPaaS engineer\n- Technical program manager / implementation director\n- Federal / public sector IT consultant\n- WFM / HCM platform consultant\n- Solutions / enterprise architect (transitioning into — does not currently hold title)\n\n---\n\n### CREDENTIAL MAP — Use for STRONG / ADJACENT / GAP classification\n\n**STRONG — Brian has done this directly. Claim confidently.**\n- Platform consulting / professional services delivery (22 years)\n- Enterprise IT service catalog design and implementation\n- Integration architecture: REST, SOAP, SAML SSO, OAuth, JWT, LDAP/AD, webhooks\n- Fixed-bid project delivery (e.g., 11-week Thrivent migration, 2,340-hour USDA program)\n- Multi-year retained advisory programs (USDA 10yr, DOE 5yr contract)\n- Federal / regulated environments: FISMA, DISA STIG, HIPAA, DoD, PIV/CAC\n- ITSM platforms: BMC Remedy ARS/Helix, ServiceNow (integration target — see ADJACENT)\n- Kubernetes deployment management (DOE on-premises, Navy PEO NIPR)\n- WFM / HR workflow automation (Warner Brothers, Encompass Health, YUM! Brands, Ahold)\n- Stakeholder management: director-level presentations, SOW authoring, federal procurement\n- Mentoring / training: SDK training workshops adopted org-wide, client team enablement\n- Languages / scripting: Ruby, JavaScript, Python, SQL, React, HTML, CSS\n- Databases: Cassandra, MS SQL, Oracle, PostgreSQL, Elasticsearch\n\n**ADJACENT — Brian has done analogous work. Frame carefully; do not overclaim.**\n- Solutions / enterprise architect (strong design work; never formally held title)\n- ServiceNow platform build (integration target only; not platform developer or admin)\n- NetSuite admin / ERP build (integration target only)\n- Agile / Scrum (applied in delivery; not PMP- or CSM-certified unless certification confirmed)\n- AI/ML integration (AI-assisted tooling and prompt engineering; not model development)\n- Pre-sales / sales engineering (solution design and SOW authoring present; no quota or pipeline)\n- Microservices architecture (deployed and managed containerized platforms; did not design microservice systems)\n- DevOps / CI/CD (used CI/CD tooling in delivery; not primary DevOps engineer)\n- Change management (facilitated adoption and stakeholder alignment; not formal OCM practitioner)\n\n**HARD GAP — Never claim. If JD requires these as primary skills, flag as GAP.**\n- Salesforce (any module: Sales Cloud, Service Cloud, CPQ, AgentForce)\n- Contact Center / NICE inContact / Genesys (no experience)\n- Microsoft Power Platform (Power Apps, Power Automate, Power BI as primary)\n- CPQ / Configure-Price-Quote platform build\n- Formal ESA or enterprise architect title (transitioning into; has not held)\n- Security clearance above PIV/CAC (e.g., Secret, TS/SCI — not held)\n\n---\n\n### HARD PASS TRIGGERS — Auto-assign PASS tier regardless of other fit\n\nIf ANY of these are listed as primary (not nice-to-have) requirements, the evaluation tier is PASS:\n1. Salesforce platform specialist required (Sales Cloud, CPQ, AgentForce, Service Cloud)\n2. Contact Center / NICE inContact as primary platform\n3. Microsoft Power Platform as primary (not incidental)\n4. CPQ / Quote-to-Cash platform build as core responsibility\n5. Active clearance required above PIV/CAC level (Secret, TS/SCI)\n\n---\n\n### ROLE-TO-PROFILE MAP\n\nMatch the JD to one of these profiles based on dominant role signal:\n\n| Profile Key | Use When JD Signals... |\n|-------------|------------------------|\n| `federal` | Federal civilian, DoD, public sector, regulatory IT, GSA, USDA, DoD agencies |\n| `saas_implementation` | SaaS professional services, implementation consultant, customer onboarding, CS |\n| `integration_architect` | iPaaS, API engineer, middleware, MuleSoft/Boomi/integration-heavy |\n| `tpm` | TPM, implementation director, program governance, delivery management |\n| `esa` | Enterprise / solutions architect (apply honesty guard — flag ESA title gap) |\n| `wfm` | WFM, HCM, scheduling software, HR tech, workforce platforms |\n| `general` | Broad / unclear / recruiter outreach / no clear sector lean |\n\nMixed signals: identify dominant (>40%) and secondary profile. Lead with dominant.\n\n---\n\n### SCORING RULES\n\n**Fit Score (1–10):**\nAssess how well Brian's STRONG + ADJACENT credentials cover the JD's must-have requirements.\n\n| Score | Meaning |\n|-------|---------|\n| 8–10 | Most must-haves are STRONG; no critical gaps |\n| 6–7 | Solid fit; 1–2 ADJACENT items; no hard GAPs |\n| 4–5 | Reasonable fit; multiple ADJACENT or 1 soft GAP |\n| 2–3 | Stretch; 2+ hard GAPs or requires primary skill Brian lacks |\n| 1 | Do not apply |\n\n**Honest Ceiling:**\nRecalculate score after removing all un-claimable items. If the role requires a hard GAP skill as\nprimary, the ceiling is capped by that gap. State both scores.\n\n**Tier Assignment:**\n\n| Tier | Criteria | Recommended Action |\n|------|----------|--------------------|\n| A | Score 7+; no critical gaps; strong profile match | Apply within 48 hours |\n| B | Score 5–6; ADJACENT items manageable; gaps frameable | Target resume; apply within 1 week |\n| C | Score 3–4; multiple gaps but worth attempting if pipeline is thin | Apply only if pipeline is thin |\n| PASS | Score ≤2 OR any hard PASS trigger fires | Do not apply |\n\n---\n\n### ATS SCORING METHODOLOGY\n\nPerform keyword matching between the JD and the full text of MASTER_RESUME_YAML.\n\n**Step 1 — Extract JD keywords.**\nFrom the job description, identify all meaningful keywords:\n- Technical tools and platforms (e.g., Salesforce, ServiceNow, REST API, Kubernetes)\n- Methodologies (e.g., Agile, ITIL, SOW, fixed-bid)\n- Industry/domain terms (e.g., HIPAA, FISMA, SaaS, iPaaS, WFM)\n- Role-specific verbs/nouns (e.g., \"stakeholder management,\" \"implementation lifecycle\")\nExclude filler words, generic phrases (\"strong communication\"), and job posting boilerplate.\n\n**Step 2 — Match against YAML.**\nFor each extracted keyword:\n- Search the YAML text for an exact or near-exact match (case-insensitive).\n- Also accept honest semantic equivalents from the ADJACENT list (e.g., \"iPaaS\" matches \"visual integration platform\").\n- Mark each keyword: HIT (found in YAML) or MISS (not found).\n\n**Step 3 — Score.**\n```\nATS_RAW   = (HIT count / total keyword count) * 100     [keywords literally in YAML]\nATS_HONEST = (HIT count excluding hard GAP items / total count) * 100   [ceiling after gaps removed]\n```\n\n**Step 4 — Flag gaps.**\nList all MISS keywords. For each, note:\n- Is it a HARD GAP (Brian cannot claim it)? → flag as [GAP]\n- Is it ADJACENT (could be added with honest framing)? → flag as [ADJACENT — add to resume]\n- Is it simply missing from YAML but Brian has done it? → flag as [ADD — confirm with Brian]\n\n---\n\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n```\n\n---\n\n## ── USER MESSAGE TEMPLATE ────────────────────────────────────────────────────\n\nUse the following template when calling this prompt. Replace the placeholder blocks with actual content.\n\n---\n\nEvaluate this job posting for Brian Peterson using the scoring rules and ATS methodology in your\ninstructions. Produce only the output block defined in OUTPUT FORMAT.\n\n### MASTER_RESUME_YAML\n```\n{{ $(\"Code\").item.json.my_resume_content }}\n```\n\n### JOB_DESCRIPTION\n```\n{{ $('When chat message received').item.json.chatInput }}\n```\n\n---\n\n## ── USAGE NOTES ──────────────────────────────────────────────────────────────\n\n### Token efficiency tips\n- The MASTER_RESUME_YAML can be truncated to summaries + skills + bullet text if token budget is tight.\n  Client project paragraphs and intro blocks add context but are not required for ATS keyword matching.\n- If running in a pipeline where Brian's background is always the same, load MASTER_RESUME_YAML once\n  as a system-level context and only send JOB_DESCRIPTION in each user turn.\n- The output block is ~35 lines — a consistent, parseable structure suitable for downstream automation.\n\n### Pipeline integration tips\n- The output block uses `━` separator lines — easy to split on for structured parsing.\n- ATS SCORE section is machine-readable: extract the raw/honest percentages and keyword lists.\n- TIER line (A/B/C/PASS) is a single token — can be used as a filter gate in a pipeline\n  (e.g., only proceed to resume targeting if TIER != PASS).\n- If feeding into a resume-targeting step, pass TARGETING section fields as structured input\n  to the resume builder prompt.\n\n### Honesty guardrails\n- Do not inflate ATS score by matching GAP items.\n- Do not suggest adding Salesforce, Contact Center, CPQ, or Power Platform experience.\n- If a keyword has no honest analog in the YAML and is not a hard GAP, flag as [ADD] and\n  surface it to Brian for confirmation — do not silently include it.\n- Honest ceiling must always be ≤ raw ATS score.\n---\n\n---\n\n## ── MANDATORY JSON SCHEMA (STRICT ENFORCEMENT) ──────────────────────────\nYou MUST use these EXACT keys in the 'jobs_list' array. If you rename a key (e.g., using 'job_details' instead of 'Job Title'), the system will fail.\n\n{\n  \"Timestamp\": \"{{ $now }}\",\n  \"Job Title\": \"Title here\",\n  \"Company\": \"Company here\",\n  \"Date\": \"Date here\",\n  \"Match Score\": 0,\n  \"Salary\": \"Range\",\n  \"Location\": \"City, ST\",\n  \"Tier\": \"A, B, C, or PASS\",\n  \"ATS Raw\": 0,\n  \"ATS Honest\": 0,\n  \"Hit\": \"List as string\",\n  \"Miss\": \"List as string\",\n  \"Action\": \"Recommendation\",\n  \"Full Scorecard\": \"The 35-line block\",\n  \"Link\": \"URL\"\n}\n## ── DATA TRANSMISSION & BATCHING PROTOCOL (MANDATORY) ─────────────────────\n1. **BATCH SIZE:** To prevent data loss and token truncation, you must process and save jobs in batches of 5 to 10.\n2. **THE FLOW:** - Search Page 1 -> Evaluate those jobs -> Call 'Save_Jobs_Batch' immediately.\n   - Search Page 2 -> Evaluate those jobs -> Call 'Save_Jobs_Batch' immediately.\n   - Search Google -> Evaluate those jobs -> Call 'Save_Jobs_Batch' immediately.\n3. **STRICT JSON WRAPPER:** Every call to 'Save_Jobs_Batch' must contain a \"jobs_list\" array.\n4. **CONTINUATION:** Do not provide a final chat summary until you have reached the 30-job quota or exhausted all search pages.\n\n## ── SEARCH EXHAUSTION PROTOCOL (MANDATORY) ──────────────────────────\n1. **THE 30-JOB QUOTA:** You must continue searching until you have found a minimum of 30 job results total.\n2. **PAGINATION RECURSION:**\n   - After processing results from Page 1, you MUST immediately call 'job_search_tool_adzuna' again with `page: 2`.\n   - After Page 2, you MUST call 'job_search_tool_adzuna' again with `page: 3`.\n3. **DO NOT SUMMARIZE EARLY:** Do not present a final summary to Brian until you have hit the 30-job quota or the tool returns an empty list (indicating no more jobs exist).\n4. **SAVE IN BATCHES:** You may call 'Save_Jobs_Batch' after EACH page search to keep your memory clear.\n\n"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        96
+      ],
+      "id": "d6d2830f-d859-4a28-8530-bd0786b87c04",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Download Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Vertex Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        []
+      ]
+    },
+    "Download Resume": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "job_search_tool_adzuna": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "job_search_tool_google": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "0083b0b2-714f-4b3d-a181-b95ba0599584",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "99e572e62f428651e29af95b5d29f11649b064a98aef50e2f8db4f13ca56aac0"
+  },
+  "id": "D5epcjx0ZHjYmYgc",
+  "tags": []
+}
